@@ -20,7 +20,7 @@ func TestScheduleTasks(t *testing.T) {
 			defer wg.Done()
 
 			for i := 0; i < 1000; i++ {
-				_, err := s.ScheduleNewTask(ctx, "0s", time.Now().UTC(), "")
+				_, err := s.ScheduleNewTask(ctx, 1, "0s", time.Now().UTC(), "")
 				checkError(err)
 			}
 		}()

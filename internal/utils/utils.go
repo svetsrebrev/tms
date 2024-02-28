@@ -33,13 +33,11 @@ func GetEnvOrDefaultInt(key string, defaultVal int) int {
 }
 
 func GetEnvOrDefaultArray(key, defaultVal, separator string) []string {
-	val := GetEnvOrDefaultStr(key, defaultVal)
-	items := strings.Split(val, separator)
-	result := make([]string, len(items))
-	for i := 0; i < len(items); i++ {
-		result[i] = strings.TrimSpace(items[i])
-	}
-	return result
+	return getEnvOrDefaultArray(key, defaultVal, separator, noOp)
+}
+
+func GetEnvOrDefaultIntArray(key, defaultVal, separator string) []int {
+	return getEnvOrDefaultArray(key, defaultVal, separator, strconv.Atoi)
 }
 
 func noOp(v string) (string, error) { return v, nil }
@@ -57,4 +55,20 @@ func getEnvOrDefault[T any](key string, defaultVal T, convert func(string) (T, e
 		return defaultVal
 	}
 	return converted
+}
+
+func getEnvOrDefaultArray[T any](key string, defaultVal, separator string, convert func(string) (T, error)) []T {
+	val := getEnvOrDefault(key, defaultVal, noOp)
+	items := strings.Split(val, separator)
+	result := make([]T, 0, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		converted, err := convert(item)
+		if err == nil {
+			result = append(result, converted)
+		} else {
+			log.Warn().Msgf("%s is not an %T, skipping it", key, *new(T))
+		}
+	}
+	return result
 }

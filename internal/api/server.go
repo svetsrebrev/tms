@@ -13,7 +13,7 @@ import (
 )
 
 func Run(store store.Store, cfg *Config) error {
-	srv := &server{store: store, echo: echo.New()}
+	srv := &server{store: store, cfg:cfg, echo: echo.New()}
 	srv.setupHandlers()
 
 	return srv.echo.Start(cfg.ListenAddress)
@@ -22,6 +22,7 @@ func Run(store store.Store, cfg *Config) error {
 type server struct {
 	echo  *echo.Echo
 	store store.Store
+	cfg *Config
 }
 
 func (s *server) setupHandlers() {
@@ -40,7 +41,7 @@ func (s *server) scheduleTask(c echo.Context) error {
 	}
 
 	// Schedule task for execution
-	id, err := s.store.ScheduleNewTask(c.Request().Context(), task.Command, task.StartAt, task.Recurring)
+	id, err := s.store.ScheduleNewTask(c.Request().Context(), s.cfg.GetSchedulePartition(), task.Command, task.StartAt, task.Recurring)
 	if err != nil {
 		log.Warn().Err(err).Msgf("Failed to schedule task")
 		return AsHttpErrOrWrap(err, http.StatusInternalServerError, "The request can not be handled at the moment")

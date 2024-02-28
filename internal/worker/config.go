@@ -1,10 +1,13 @@
 package worker
 
 import (
+	"math/rand"
 	"runtime"
 
 	"github.com/svetsrebrev/tms/internal/utils"
 )
+
+const defaulrPartition = 0
 
 type Config struct {
 	// Kakfa brockers list
@@ -21,6 +24,9 @@ type Config struct {
 
 	// Database keyspace
 	Keyspace string
+
+	// Partitions to re-schedule recurring tasks on
+	SchedulePartitiones []int32
 
 	// Max concurrent tasks execution per worker node
 	ConcurentTasks int
@@ -39,12 +45,21 @@ func LoadConfig() *Config {
 		TaskTopics:     utils.GetEnvOrDefaultArray("TASKS_TOPICS", "tms", ","),
 		ConsumersGroup: utils.GetEnvOrDefaultStr("CONSUMERS_GROUP", "workers"),
 
-		ScyllaNodes: utils.GetEnvOrDefaultArray("SCYLLA_NODES", "localhost:19042", ","),
-		Keyspace:    utils.GetEnvOrDefaultStr("KEYSPACE", "tms"),
+		ScyllaNodes:         utils.GetEnvOrDefaultArray("SCYLLA_NODES", "localhost:19042", ","),
+		Keyspace:            utils.GetEnvOrDefaultStr("KEYSPACE", "tms"),
+		SchedulePartitiones: utils.CollectAll(utils.GetEnvOrDefaultIntArray("SCHEDULE_PARTITIONES", "1,2,3", ","), func(i int) int32 { return int32(i) }),
 
 		ConcurentTasks: utils.GetEnvOrDefaultInt("CONCURENT_TASKS", 8*runtime.NumCPU()),
 
 		HeartBeatIntervalSec: utils.GetEnvOrDefaultInt("HEART_BEAT_INTERVAL_SEC", 3),
 		WorkerTimeoutSec:     utils.GetEnvOrDefaultInt("WORKER_TIMEOUT_SEC", 9),
 	}
+}
+
+func (c *Config) GetSchedulePartition() int32 {
+	partitiones := len(c.SchedulePartitiones)
+	if partitiones < 1 {
+		return defaulrPartition
+	}
+	return c.SchedulePartitiones[rand.Int31n(int32(partitiones))]
 }

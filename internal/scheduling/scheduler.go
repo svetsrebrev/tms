@@ -47,7 +47,7 @@ func (s *Scheduler) Run(ctx context.Context) error {
 
 func (s *Scheduler) checkReadyTasks(ctx context.Context) error {
 	for {
-		tasks, err := s.store.GetReadyTasks(ctx, s.cfg.MaxTasksPoll)
+		tasks, err := s.store.GetReadyTasks(ctx, s.cfg.SchedulePartitiones, s.cfg.MaxTasksPoll)
 		if err != nil {
 			log.Error().Err(err).Msg("Unable to retrieve 'Scheduled' tasks")
 			return err

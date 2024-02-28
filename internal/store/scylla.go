@@ -41,7 +41,7 @@ func (s *Scylla) Close() error {
 	return nil
 }
 
-func (s *Scylla) ScheduleNewTask(ctx context.Context, command string, startAt time.Time, recurring string) (string, error) {
+func (s *Scylla) ScheduleNewTask(ctx context.Context, partition int32, command string, startAt time.Time, recurring string) (string, error) {
 	id := uuid.New().String()
 	task := models.TasksStruct{
 		Id:        id,
@@ -50,7 +50,7 @@ func (s *Scylla) ScheduleNewTask(ctx context.Context, command string, startAt ti
 		Command:   command,
 		Status:    int32(utils.Scheduled),
 	}
-	err := s.scheduleTask(ctx, &task)
+	err := s.scheduleTask(ctx, partition, &task)
 	if err != nil {
 		return "", err
 	}
@@ -58,14 +58,14 @@ func (s *Scylla) ScheduleNewTask(ctx context.Context, command string, startAt ti
 	return id, nil
 }
 
-func (s *Scylla) scheduleTask(ctx context.Context, task *models.TasksStruct) error {
+func (s *Scylla) scheduleTask(ctx context.Context, partition int32, task *models.TasksStruct) error {
 	query := s.db.Query(models.Tasks.Insert()).BindStruct(task).WithContext(ctx)
 	if err := query.ExecRelease(); err != nil {
 		return err
 	}
 
 	st := models.TasksByScheduleStruct{
-		When:         task.StartAt,
+		Partition:    partition,
 		ScheduledFor: task.StartAt,
 		TaskId:       task.Id,
 	}
@@ -97,8 +97,21 @@ func (s *Scylla) GetTask(ctx context.Context, taskId string) (*models.TasksStruc
 	return task, nil
 }
 
-func (s *Scylla) GetReadyTasks(ctx context.Context, max int) (ScheduledTasks, error) {
-	return s.getSchedules(ctx, max, s.pastDays)
+func (s *Scylla) GetReadyTasks(ctx context.Context, partitions []int32, max int) (ScheduledTasks, error) {
+	result := ScheduledTasks{}
+
+	now := time.Now().UTC()
+	selector := qb.Select(models.TasksBySchedule.Name()).Where(
+		qb.In("partition"),
+		qb.Lt("scheduled_for"),
+	)
+	query := s.db.Query(selector.Limit(uint(max)).ToCql()).WithContext(ctx)
+	query.BindMap(qb.M{"partition": partitions, "scheduled_for": now})
+	if err := query.SelectRelease(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func (s *Scylla) SetPendingState(ctx context.Context, tasks ScheduledTasks) error {
@@ -127,11 +140,11 @@ func (s *Scylla) SetFinishedState(ctx context.Context, owner string, taskIds ...
 	return s.deleteTasksForOwner(ctx, owner, taskIds...)
 }
 
-func (s *Scylla) ReScheduleTask(ctx context.Context, currentOwner string, task *models.TasksStruct, startAt time.Time) error {
+func (s *Scylla) ReScheduleTask(ctx context.Context, currentOwner string, partition int32, task *models.TasksStruct, startAt time.Time) error {
 	task.StartAt = startAt
 	task.Status = int32(utils.Scheduled)
 
-	err := s.scheduleTask(ctx, task)
+	err := s.scheduleTask(ctx, partition, task)
 	if err != nil {
 		return err
 	}
@@ -202,31 +215,6 @@ func (s *Scylla) DeleteWorkers(ctx context.Context, workers []*models.WorkersStr
 	)
 
 	return err
-}
-
-func (s *Scylla) getSchedules(ctx context.Context, max int, pastDays int) (ScheduledTasks, error) {
-	result := ScheduledTasks{}
-
-	now := time.Now().UTC()
-	selector := qb.Select(models.TasksBySchedule.Name()).Columns("*").Where(
-		qb.Eq("when"),
-		qb.Lt("scheduled_for"),
-	)
-	for ; max > 0 && pastDays >= 0; pastDays-- {
-		date := now.AddDate(0, 0, -pastDays).Format(time.DateOnly)
-
-		query := s.db.Query(selector.Limit(uint(max)).ToCql()).WithContext(ctx)
-		query.BindMap(qb.M{"when": date, "scheduled_for": now})
-
-		batch := ScheduledTasks{}
-		if err := query.SelectRelease(&batch); err != nil {
-			return nil, err
-		}
-		result = append(result, batch...)
-		max -= len(batch)
-	}
-
-	return result, nil
 }
 
 func (s *Scylla) deleteSchedules(ctx context.Context, tasks ScheduledTasks) error {

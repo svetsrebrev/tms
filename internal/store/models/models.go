@@ -27,12 +27,12 @@ var (
 	TasksBySchedule = table.New(table.Metadata{
 		Name: "tasks_by_schedule",
 		Columns: []string{
+			"partition",
 			"scheduled_for",
 			"task_id",
-			"when",
 		},
 		PartKey: []string{
-			"when",
+			"partition",
 		},
 		SortKey: []string{
 			"scheduled_for",
@@ -77,9 +77,9 @@ type TasksStruct struct {
 	Status    int32
 }
 type TasksByScheduleStruct struct {
+	Partition    int32
 	ScheduledFor time.Time
 	TaskId       string
-	When         time.Time
 }
 type TasksByWorkerStruct struct {
 	TaskId   string

@@ -11,10 +11,10 @@ CREATE TABLE tasks (
 );
 
 CREATE TABLE tasks_by_schedule (
-    when date,
+    partition int,
     scheduled_for timestamp,
     task_id text,
-    PRIMARY KEY (when, scheduled_for, task_id)
+    PRIMARY KEY (partition, scheduled_for, task_id)
 ) WITH CLUSTERING ORDER BY (scheduled_for ASC);
 
 CREATE TABLE tasks_by_worker (

@@ -202,7 +202,7 @@ func (w *Worker) processTask(ctx context.Context, taskId string) error {
 			return err
 		}
 	} else {
-		err := w.store.ReScheduleTask(context.Background(), w.workerId, task, nextRun)
+		err := w.store.ReScheduleTask(context.Background(), w.workerId, w.cfg.GetSchedulePartition(), task, nextRun)
 		if err != nil {
 			utils.LogIfNotCancelled(err, fmt.Sprintf("Unable to reshedule task: %s", task.Id))
 			return err

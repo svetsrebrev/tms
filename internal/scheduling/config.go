@@ -21,6 +21,9 @@ type Config struct {
 	// Maximum number of tasks to pool and schedule for execution
 	MaxTasksPoll int
 
+	// Which scheduling partitions this instance of scheduler service should consume
+	SchedulePartitiones []int32
+
 	// Interval in seconds to check if workers are still alive
 	CheckWorkersSec int
 
@@ -39,6 +42,7 @@ func LoadConfig() *Config {
 
 		MaxTasksPoll:          utils.GetEnvOrDefaultInt("MAX_POLL_RECORDS", 10000),
 		CheckTasksScheduleSec: utils.GetEnvOrDefaultInt("CHECK_TASKS_SCHEDULE_SEC", 1),
+		SchedulePartitiones:   utils.CollectAll(utils.GetEnvOrDefaultIntArray("SCHEDULE_PARTITIONES", "1,2,3", ","), func(i int) int32 { return int32(i) }),
 
 		CheckWorkersSec:  utils.GetEnvOrDefaultInt("CHECK_WORKERS_SEC", 5),
 		WorkerTimeoutSec: utils.GetEnvOrDefaultInt("WORKER_TIMEOUT_SEC", 15),
